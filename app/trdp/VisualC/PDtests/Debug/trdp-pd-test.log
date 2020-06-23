@@ -1,0 +1,23 @@
+﻿生成启动时间为 2018/7/30 8:58:20。
+     1>项目“E:\SVN\TCNopen_SVN_online\trdp\VisualC\PDtests\trdp-pd-test.vcxproj”在节点 2 上(rebuild 个目标)。
+     1>InitializeBuildStatus:
+         正在创建“Debug\trdp-pd-test.unsuccessfulbuild”，因为已指定“AlwaysCreate”。
+       ClCompile:
+         D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /I..\..\src\api /I..\..\src\vos\api /I..\..\src\vos\windows /I..\..\src\common /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc100.pdb" /Gd /TC /analyze- /errorReport:prompt "..\..\test\pdpatterns\trdp-pd-test.c"
+         trdp-pd-test.c
+     1>e:\svn\tcnopen_svn_online\trdp\test\pdpatterns\trdp-pd-test.c(450): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 d:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : 参见“sprintf”的声明
+     1>e:\svn\tcnopen_svn_online\trdp\test\pdpatterns\trdp-pd-test.c(691): warning C4013: “snprintf”未定义；假设外部返回 int
+     1>e:\svn\tcnopen_svn_online\trdp\test\pdpatterns\trdp-pd-test.c(846): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 d:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(234) : 参见“fopen”的声明
+       ManifestResourceCompile:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\rc.exe /nologo /fo"Debug\trdp-pd-test.exe.embed.manifest.res" Debug\trdp-pd-test_manifest.rc 
+       Link:
+         D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\SVN\TCNopen_SVN_online\trdp\VisualC\PDtests\Debug\trdp-pd-test.exe" /INCREMENTAL /NOLOGO /LIBPATH:..\..\resources\windows\pthread\lib pthreadVC2.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\trdp-pd-test.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"E:\SVN\TCNopen_SVN_online\trdp\VisualC\PDtests\Debug\trdp-pd-test.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\SVN\TCNopen_SVN_online\trdp\VisualC\PDtests\Debug\trdp-pd-test.lib" /MACHINE:X86 "Debug\trdp-pd-test.exe.embed.manifest.res"
+         "Debug\trdp-pd-test.obj"
+     1>LINK : fatal error LNK1104: 无法打开文件“pthreadVC2.lib”
+     1>已完成生成项目“E:\SVN\TCNopen_SVN_online\trdp\VisualC\PDtests\trdp-pd-test.vcxproj”(rebuild 个目标)的操作 - 失败。
+
+生成失败。
+
+已用时间 00:00:03.55
