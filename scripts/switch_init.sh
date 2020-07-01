@@ -20,8 +20,8 @@ if [ $1 -ge 0 ] && [ $1 -le 9 ]; then
     ifconfig ep up
     ifconfig eth1 up
     ifconfig eth2 up
-    devmem 0x8007800c 32 0x350001"$1"0
-    devmem 0x80078010 32 0xf000a
+    devmem 0x43c3800c 32 0x350001"$1"0
+    devmem 0x43c38010 32 0xf000a
     echo "##### Board $1 IP & MAC config done. #####"
 else
     echo "Wrong board num. Should be 0-9."
@@ -32,7 +32,7 @@ switch_prog pst -s swp0 --state=4
 switch_prog pst -s swp1 --state=0
 switch_prog pst -s swp2 --state=0
 if [ $2 -ne 0 ]; then
-    devmem 0x80078048 32 0xA
+    devmem 0x43c38048 32 0xA
     switch_prog ale -s -l 1 -t 300
     switch_prog ale -s -l 1 -u
     echo "##### Address learning Enabled. #####"
