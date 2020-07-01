@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ $# -ne 1 ]; then
-    echo "Enter the board Num. (0-9)"
+    echo "Input board Number (0-9)."
     exit
 fi
 
@@ -20,8 +20,8 @@ if [ $1 -ge 0 ] && [ $1 -le 9 ]; then
     ifconfig ep up
     ifconfig eth1 up
     ifconfig eth2 up
-    devmem 0x8007800c 32 0x350001"$1"0
-    devmem 0x80078010 32 0xf000a
+    devmem 0x43c3800c 32 0x350001"$1"0
+    devmem 0x43c38010 32 0xf000a
     echo "##### Board $1 IP & MAC config done. #####"
 else
     echo "Wrong board num. Should be 0-9."
