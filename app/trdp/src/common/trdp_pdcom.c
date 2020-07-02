@@ -391,6 +391,11 @@ TRDP_ERR_T  trdp_pdSendQueued (
                 /*  Set timer if interval was set.
                     In case of a requested cyclically PD packet, this will lead to one time jump (jitter) in the interval
                 */
+
+                /* MODIFIED */  
+                vos_getTime(&now);                               
+                printf("COMID %d: SET: %d, %d | ACTUAL %d, %d\n", iterPD->addr.comId, iterPD->timeToGo.tv_sec, iterPD->timeToGo.tv_usec, now.tv_sec, now.tv_usec);
+
                 vos_addTime(&iterPD->timeToGo, &iterPD->interval);
 
                 if (vos_cmpTime(&iterPD->timeToGo, &now) <= 0)

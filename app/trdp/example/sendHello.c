@@ -104,6 +104,7 @@ void usage (const char *appName)
            "-t <target IP address>\n"
            "-c <comId> (default 0)\n"
            "-s <cycle time> (default 1000000 [us])\n"
+           "-n process number (default 1)\n"
            "-e send empty request\n"
            "-d <custom string to send> (default: 'Hello World')\n"
            "-v print version and quit\n"
@@ -120,6 +121,7 @@ void usage (const char *appName)
 int main (int argc, char *argv[])
 {
     unsigned int            ip[4];
+    unsigned int            processNum = 1;
     INT32                   hugeCounter = 0;
     TRDP_APP_SESSION_T      appHandle; /*    Our identifier to the library instance    */
     TRDP_PUB_T              pubHandle; /*    Our identifier to the publication         */
@@ -138,11 +140,17 @@ int main (int argc, char *argv[])
     UINT8                   *outputBuffer;
     UINT8                   exampleData[DATA_MAX]   = "Hello World";
     UINT32                  outputBufferSize        = 24u;
+    UINT32                  dataSize;
 
     UINT8                   data[DATA_MAX];
-    int ch;
+    int ch, i;
 
     outputBuffer = exampleData;
+
+    for (i = 0; i < DATA_MAX; i++)
+    {
+        data[i] = (UINT8)i;
+    }
 
     if (argc <= 1)
     {
@@ -150,7 +158,7 @@ int main (int argc, char *argv[])
         return 1;
     }
 
-    while ((ch = getopt(argc, argv, "t:o:d:s:h?vec:")) != -1)
+    while ((ch = getopt(argc, argv, "t:o:d:s:n:h?vec:")) != -1)
     {
         switch (ch)
         {
@@ -185,6 +193,17 @@ int main (int argc, char *argv[])
                }
                break;
            }
+           case 'n':
+           {
+               /*  read process number   */
+               if (sscanf(optarg, "%u",
+                          &processNum) < 1)
+               {
+                   usage(argv[0]);
+                   exit(1);
+               }
+               break;
+           }
            case 't':
            {    /*  read ip    */
                if (sscanf(optarg, "%u.%u.%u.%u",
@@ -204,7 +223,7 @@ int main (int argc, char *argv[])
            break;
            case 'd':
            {    /*  data    */
-               char     c;
+               /*char     c;
                UINT32   dataSize = 0u;
                do
                {
@@ -219,7 +238,19 @@ int main (int argc, char *argv[])
                    return 1;
                }
                memcpy(data, optarg, dataSize);
-               outputBuffer     = data;     /* move the pointer to the new data */
+               outputBuffer     = data;
+               outputBufferSize = dataSize;
+               break;*/
+
+                /*  read datasize    */
+               if (sscanf(optarg, "%u",
+                          &dataSize) < 1 ||
+                   dataSize > DATA_MAX)
+               {
+                   usage(argv[0]);
+                   exit(1);
+               }
+               outputBuffer     = data;
                outputBufferSize = dataSize;
                break;
            }
@@ -244,7 +275,7 @@ int main (int argc, char *argv[])
     }
 
     /*    Init the library  */
-    if (tlc_init(&dbgOut,                              /* no logging    */
+    if (tlc_init(&dbgOut,                              /* (MODIFIED) &dbgOut for logging, no logging    */
                  NULL,
                  &dynamicConfig) != TRDP_NO_ERR)    /* Use application supplied memory    */
     {
@@ -265,21 +296,27 @@ int main (int argc, char *argv[])
 
     /*    Copy the packet into the internal send queue, prepare for sending.    */
     /*    If we change the data, just re-publish it    */
-    err = tlp_publish(  appHandle,                  /*    our application identifier    */
-                        &pubHandle,                 /*    our pulication identifier     */
-                        NULL, NULL,
-                        comId,                      /*    ComID to send                 */
-                        0,                          /*    etbTopoCnt = 0 for local consist only     */
-                        0,                          /*    opTopoCnt = 0 for non-directinal data     */
-                        ownIP,                      /*    default source IP             */
-                        destIP,                     /*    where to send to              */
-                        cycleTime,                  /*    Cycle time in us              */
-                        0,                          /*    not redundant                 */
-                        TRDP_FLAGS_NONE,            /*    Use callback for errors       */
-                        NULL,                       /*    default qos and ttl           */
-                        (UINT8 *)outputBuffer,      /*    initial data                  */
-                        outputBufferSize            /*    data size                     */
-                        );
+    
+    
+
+    for (i = 0; i < processNum; i ++)
+    {
+        err = tlp_publish(  appHandle,                  /*    our application identifier    */
+                            &pubHandle,                 /*    our pulication identifier     */
+                            NULL, NULL,
+                            comId - i,                  /*    ComID to send                 */
+                            0,                          /*    etbTopoCnt = 0 for local consist only     */
+                            0,                          /*    opTopoCnt = 0 for non-directinal data     */
+                            ownIP,                      /*    default source IP             */
+                            destIP,                     /*    where to send to              */
+                            cycleTime,                  /*    Cycle time in us              */
+                            0,                          /*    not redundant                 */
+                            TRDP_FLAGS_NONE,            /*    Use callback for errors       */
+                            NULL,                       /*    default qos and ttl           */
+                            (UINT8 *)outputBuffer,      /*    initial data                  */
+                            outputBufferSize            /*    data size                     */
+                            );
+    }
 
 
     if (err != TRDP_NO_ERR)
@@ -299,7 +336,7 @@ int main (int argc, char *argv[])
         TRDP_TIME_T         tv;
         TRDP_TIME_T         now;
         const TRDP_TIME_T   max_tv  = {0, 1000000};
-        const TRDP_TIME_T   min_tv  = {0, 10000};
+        const TRDP_TIME_T   min_tv  = {0, 1000};
 
         /*
            Prepare the file descriptor set for the select call.
@@ -314,6 +351,9 @@ int main (int argc, char *argv[])
            with minimum CPU load and minimum jitter.
          */
         tlc_getInterval(appHandle, &tv, &rfds, &noDesc);
+
+        /* MODIFIED */
+        printf("Wait: %d, %d\n", tv.tv_sec, tv.tv_usec);
 
         /*
            The wait time for select must consider cycle times and timeouts of
@@ -352,11 +392,6 @@ int main (int argc, char *argv[])
         {
             vos_printLogStr(VOS_LOG_USR, "other descriptors were ready\n");
         }
-        else
-        {
-            vos_getTime(&now);
-            printf("%d, %d\n", now.tv_sec, now.tv_usec);
-        }
 
         if (outputBuffer != NULL && strlen((char *)outputBuffer) != 0)
         {
@@ -381,3 +416,4 @@ int main (int argc, char *argv[])
     tlc_terminate();
     return rv;
 }
+

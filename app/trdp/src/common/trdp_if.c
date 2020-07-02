@@ -1377,7 +1377,8 @@ EXT_DECL TRDP_ERR_T tlp_publish (
             {
                 vos_getTime(&nextTime);
                 nextTime.tv_sec += 1;
-                nextTime.tv_usec = 0;                
+                /* (MODIFIED) Separate the sends */
+                nextTime.tv_usec = (comId % 100) * 10000;                
                 tv_interval.tv_sec  = interval / 1000000u;
                 tv_interval.tv_usec = interval % 1000000;                
                 vos_addTime(&nextTime, &tv_interval);
@@ -1707,6 +1708,8 @@ EXT_DECL TRDP_ERR_T tlc_getInterval (
                 {
                     vos_subTime(&appHandle->nextJob, &now);
                     *pInterval = appHandle->nextJob;
+                    /* MODIFIED */
+                    //printf("Int: %d, %d\n", pInterval->tv_sec, pInterval->tv_usec);
                 }
                 else if (timerisset(&appHandle->nextJob))
                 {
@@ -3279,3 +3282,4 @@ EXT_DECL TRDP_ERR_T tlm_abortSession (
 #ifdef __cplusplus
 }
 #endif
+
