@@ -58,6 +58,7 @@ VOS_OBJS = vos_utils.o \
 	   vos_thread.o \
 	   vos_shared_mem.o
 
+
 TRDP_OBJS = trdp_pdcom.o \
 	    trdp_utils.o \
 	    trdp_if.o \

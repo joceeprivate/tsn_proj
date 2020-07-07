@@ -297,14 +297,84 @@ TRDP_ERR_T  trdp_pdSendQueued (
     TRDP_TIME_T now;
     TRDP_ERR_T  err = TRDP_NO_ERR;
 
+    // UINT8       packetNum = 0;
+    // UINT32      triggerTime = 1000000;    
+
     vos_clearTime(&appHandle->nextJob);
+
+    /*(MODIFIED) Find the packet, add stream to tadma */    
+
+    
+    // err = flush_stream();
+    
+    // if (err != VOS_NO_ERR)
+    // {
+    //     vos_printLogStr(VOS_LOG_ERROR, "failed to FLUSH streams!\n");
+    // }
+
+    // while (iterPD != NULL)
+    // {
+    //     vos_getTime(&now);
+
+    //     if ((timerisset(&iterPD->interval) &&
+    //          !timercmp(&iterPD->timeToGo, &now, >)) ||
+    //         (iterPD->privFlags & TRDP_REQ_2B_SENT))
+    //     {
+    //         if (!(iterPD->privFlags & TRDP_INVALID_DATA))
+    //         {
+    //             if (!(iterPD->privFlags & TRDP_REDUNDANT))
+    //             {
+
+    //                 tadma_stream        stream;
+    //                 UINT32              ip;
+
+    //                 stream.is_trdp = TRUE;
+    //                 /* ip little endian, 1.1.1.10 */
+    //                 ip = vos_htonl(iterPD->addr.destIpAddr);
+    //                 memcpy(stream.ip, (UINT8 *)&ip, 4);
+    //                 stream.comid = iterPD->addr.comId;
+    //                 stream.trigger = triggerTime;
+    //                 stream.count = 1;
+    //                 stream.start = packetNum? FALSE:TRUE;                    
+                    
+    //                 err = add_stream(&stream);                    
+
+    //                 if (err != VOS_NO_ERR)
+    //                 {
+    //                     vos_printLogStr(VOS_LOG_ERROR, "failed to ADD streams!\n");
+    //                 }
+
+    //                 vos_printLog(VOS_LOG_DBG, "stream added, num:%d, comid: %d\n", packetNum, stream.comid);
+
+    //                 //vos_memFree(&stream);
+    //                 packetNum ++;
+    //                 triggerTime += 100000;
+    //             }
+    //         }
+    //     }
+
+    //     iterPD = iterPD->pNext;
+    // }
+
+    // if (packetNum)
+    // {
+    //     err = program_all_streams();
+
+    //     if (err != VOS_NO_ERR)
+    //     {
+    //         vos_printLogStr(VOS_LOG_ERROR, "failed to PROGRAM streams!\n");
+    //     }
+
+    // }  
+
+    // iterPD = appHandle->pSndQueue;
 
     /*    Find the packet which has to be sent next:    */
     while (iterPD != NULL)
     {
         /*    Get the current time    */
         vos_getTime(&now);
-
+        
         /*  Is this a cyclic packet and
          due to sent?
          or is it a PD Request or a requested packet (PULL) ?
@@ -313,6 +383,7 @@ TRDP_ERR_T  trdp_pdSendQueued (
              !timercmp(&iterPD->timeToGo, &now, >)) ||
             (iterPD->privFlags & TRDP_REQ_2B_SENT))
         {
+            
             /* send only if there is valid data */
             if (!(iterPD->privFlags & TRDP_INVALID_DATA))
             {
@@ -367,9 +438,15 @@ TRDP_ERR_T  trdp_pdSendQueued (
                                                        vos_ntohl(iterPD->pFrame->frameHead.datasetLength));
                     }
                     /* We pass the error to the application, but we keep on going    */
+
+                    /* MODIFIED */  
+                    //vos_getTime(&now);
+                    //vos_printLog(VOS_LOG_DBG, "COMID %d: %d, %d | %d, %d\n", iterPD->addr.comId, iterPD->timeToGo.tv_sec, iterPD->timeToGo.tv_usec, now.tv_sec, now.tv_usec);
+
                     result = trdp_pdSend(appHandle->iface[iterPD->socketIdx].sock, iterPD, appHandle->pdDefault.port);
+
                     if (result == TRDP_NO_ERR)
-                    {
+                    {   
                         appHandle->stats.pd.numSend++;
                         iterPD->numRxTx++;
                     }
@@ -390,19 +467,16 @@ TRDP_ERR_T  trdp_pdSendQueued (
             {
                 /*  Set timer if interval was set.
                     In case of a requested cyclically PD packet, this will lead to one time jump (jitter) in the interval
-                */
-
-                /* MODIFIED */  
-                vos_getTime(&now);                               
-                printf("COMID %d: SET: %d, %d | ACTUAL %d, %d\n", iterPD->addr.comId, iterPD->timeToGo.tv_sec, iterPD->timeToGo.tv_usec, now.tv_sec, now.tv_usec);
+                */                             
 
                 vos_addTime(&iterPD->timeToGo, &iterPD->interval);
-
                 if (vos_cmpTime(&iterPD->timeToGo, &now) <= 0)
                 {
+                    /* Send delay */
                     /* in case of a delay of more than one interval - avoid sending it in the next cycle again */
                     iterPD->timeToGo = now;
                     vos_addTime(&iterPD->timeToGo, &iterPD->interval);
+                    /* (MODIFIED) timeToGo is multiple times of 10ms */ 
                     iterPD->timeToGo.tv_usec -= (iterPD->timeToGo.tv_usec % 10000);
                 }
             }

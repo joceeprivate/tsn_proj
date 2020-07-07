@@ -36,8 +36,12 @@
 #include "vos_thread.h"
 #include "vos_utils.h"
 
+#include <sys/ioctl.h>
+#include <linux/if.h>
+#include <linux/in.h>
+#include <errno.h>
 
-/***********************************************************************************************************************
+/************************************************************************************************************************
  * DEFINITIONS
  */
 #define APP_VERSION     "1.4"
@@ -48,7 +52,35 @@
 #define PD_COMID_CYCLE  1000000u             /* in us (1000000 = 1 sec) */
 
 /* We use dynamic memory    */
-#define RESERVED_MEMORY  160000u
+#define RESERVED_MEMORY  640000u
+
+/* TADMA configs */
+typedef enum {
+	SIOCCHIOCTL = SIOCDEVPRIVATE,
+	SIOC_GET_SCHED,
+	SIOC_PREEMPTION_CFG,
+	SIOC_PREEMPTION_CTRL,
+	SIOC_PREEMPTION_STS,
+	SIOC_PREEMPTION_COUNTER,
+	SIOC_QBU_USER_OVERRIDE,
+	SIOC_QBU_STS,
+	SIOC_TADMA_STR_ADD,
+	SIOC_TADMA_PROG_ALL,
+	SIOC_TADMA_STR_FLUSH,
+	SIOC_PREEMPTION_RECEIVE,
+	SIOC_TADMA_OFF,
+} axienet_tsn_ioctl;
+
+typedef struct {
+	BOOL8 is_trdp;
+	UINT8 dmac[6];
+	UINT16 vid;
+	UINT8 ip[4];
+	UINT32 comid;
+	UINT32 trigger;
+	UINT32 count;
+	BOOL8 start;
+} tadma_stream;
 
 /***********************************************************************************************************************
  * PROTOTYPES
@@ -65,6 +97,10 @@ void    myPDcallBack (void *,
                       const TRDP_PD_INFO_T *,
                       UINT8 *,
                       UINT32 );
+
+VOS_ERR_T flush_stream(void);
+VOS_ERR_T add_stream(tadma_stream *stream);
+VOS_ERR_T program_all_streams(void);
 
 /**********************************************************************************************************************/
 /** callback routine for TRDP logging/error output
@@ -106,11 +142,82 @@ void usage (const char *appName)
            "-s <cycle time> (default 1000000 [us])\n"
            "-n process number (default 1)\n"
            "-e send empty request\n"
-           "-d <custom string to send> (default: 'Hello World')\n"
-           "-v print version and quit\n"
+           "-d data length, max 1430\n"
+           "-v set various cycle (default false)\n"
            );
 }
 
+/* TADMA config functions */
+VOS_ERR_T flush_stream(void)
+{
+	struct ifreq s;
+	int ret;
+
+	int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+
+	strcpy(s.ifr_name, "ep");
+
+	ret = ioctl(fd, SIOC_TADMA_STR_FLUSH, &s);
+
+	close(fd);
+
+	if(ret < 0)
+	{
+		vos_printLog(VOS_LOG_ERROR, "TADMA stream flush failed\n");
+		return VOS_IO_ERR;
+	}
+
+	return VOS_NO_ERR;	
+}
+
+
+VOS_ERR_T add_stream(tadma_stream *stream)
+{
+	struct ifreq s;
+	int ret;
+
+	int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+
+	s.ifr_data = (void *)stream;
+
+	strcpy(s.ifr_name, "ep");
+
+	ret = ioctl(fd, SIOC_TADMA_STR_ADD, &s);
+
+	close(fd);
+
+	if(ret < 0)
+	{
+		vos_printLog(VOS_LOG_ERROR, "TADMA stream add failed, error code = %d\n", errno);
+		return VOS_IO_ERR;
+	}
+
+	return VOS_NO_ERR;
+}
+
+VOS_ERR_T program_all_streams(void)
+{
+	struct ifreq s;
+	int ret;
+
+	int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+
+	s.ifr_data = (void *)NULL;
+
+	strcpy(s.ifr_name, "ep");
+
+	ret = ioctl(fd, SIOC_TADMA_PROG_ALL, &s);
+
+	close(fd);
+
+	if(ret < 0)
+	{
+		vos_printLog(VOS_LOG_ERROR, "TADMA stream program failed\n");
+		return VOS_IO_ERR;
+	}
+
+	return VOS_NO_ERR;
+}
 
 /**********************************************************************************************************************/
 /** main entry
@@ -125,8 +232,9 @@ int main (int argc, char *argv[])
     INT32                   hugeCounter = 0;
     TRDP_APP_SESSION_T      appHandle; /*    Our identifier to the library instance    */
     TRDP_PUB_T              pubHandle; /*    Our identifier to the publication         */
-    UINT32                  comId       = PD_COMID;
-    UINT32                  cycleTime   = PD_COMID_CYCLE;
+    unsigned int            comId       = PD_COMID;
+    unsigned int            cycleTime   = PD_COMID_CYCLE;
+    BOOL8                   variousCycle  = FALSE;
     TRDP_ERR_T              err;
     TRDP_PD_CONFIG_T        pdConfiguration =
     {NULL, NULL, {0u, 64u, 0u}, TRDP_FLAGS_NONE, 1000000u, TRDP_TO_SET_TO_ZERO, 0};
@@ -134,7 +242,8 @@ int main (int argc, char *argv[])
     TRDP_PROCESS_CONFIG_T   processConfig   = {"Me", "", 0, 0, TRDP_OPTION_BLOCK};
     UINT32                  ownIP           = 0u;
     int rv = 0;
-    UINT32                  destIP = 0u;
+    UINT32                  destIP = 0u, destIPbe = 0u;
+
 
     /*    Generate some data, that we want to send, when nothing was specified. */
     UINT8                   *outputBuffer;
@@ -143,6 +252,8 @@ int main (int argc, char *argv[])
     UINT32                  dataSize;
 
     UINT8                   data[DATA_MAX];
+
+    UINT32                  triggerTime = 200000u;
     int ch, i;
 
     outputBuffer = exampleData;
@@ -158,7 +269,7 @@ int main (int argc, char *argv[])
         return 1;
     }
 
-    while ((ch = getopt(argc, argv, "t:o:d:s:n:h?vec:")) != -1)
+    while ((ch = getopt(argc, argv, "o:t:c:n:d:s:h?ve")) != -1)
     {
         switch (ch)
         {
@@ -185,13 +296,13 @@ int main (int argc, char *argv[])
            }
            case 's':
            {    /*  read cycle time    */
-               if (sscanf(optarg, "%u",
+                if (sscanf(optarg, "%u",
                           &cycleTime) < 1)
                {
                    usage(argv[0]);
                    exit(1);
                }
-               break;
+               break;     
            }
            case 'n':
            {
@@ -213,6 +324,7 @@ int main (int argc, char *argv[])
                    exit(1);
                }
                destIP = (ip[3] << 24) | (ip[2] << 16) | (ip[1] << 8) | ip[0];
+               destIPbe = vos_htonl(destIP);
                break;
            }
            case 'e':
@@ -254,10 +366,12 @@ int main (int argc, char *argv[])
                outputBufferSize = dataSize;
                break;
            }
-           case 'v':    /*  version */
-               printf("%s: Version %s\t(%s - %s)\n",
+           case 'v':    
+                /*  version */
+               /*printf("%s: Version %s\t(%s - %s)\n",
                       argv[0], APP_VERSION, __DATE__, __TIME__);
-               exit(0);
+               exit(0);*/
+               variousCycle = TRUE;
                break;
            case 'h':
            case '?':
@@ -266,7 +380,12 @@ int main (int argc, char *argv[])
                return 1;
         }
     }
-
+    printf(" SendTRDP : IP: %x, COMID: %d, NUM: %d ", destIP, comId, processNum);
+    if (variousCycle)        
+        printf("VARIOUS CYCLE: 30/60/100/250 change every 32 COMID\n");
+    else
+        printf("CYCLE: %d\n", cycleTime);
+    
     if (destIP == 0)
     {
         fprintf(stderr, "No destination address given!\n");
@@ -275,7 +394,7 @@ int main (int argc, char *argv[])
     }
 
     /*    Init the library  */
-    if (tlc_init(&dbgOut,                              /* (MODIFIED) &dbgOut for logging, no logging    */
+    if (tlc_init(NULL,                              /* (MODIFIED) &dbgOut for logging, no logging    */
                  NULL,
                  &dynamicConfig) != TRDP_NO_ERR)    /* Use application supplied memory    */
     {
@@ -297,14 +416,49 @@ int main (int argc, char *argv[])
     /*    Copy the packet into the internal send queue, prepare for sending.    */
     /*    If we change the data, just re-publish it    */
     
-    
+    if (flush_stream() != TRDP_NO_ERR)
+    {
+        vos_printLogStr(VOS_LOG_USR, "TADMA flush stream error\n");
+        return 1;
+    }
 
     for (i = 0; i < processNum; i ++)
     {
+        tadma_stream    stream;
+
+        if (variousCycle)
+        {
+            if (i < 32)
+                cycleTime = 30000u;
+            else if (i < 64)
+                cycleTime = 60000u;
+            else if (i < 96)
+                cycleTime = 100000u;
+            else
+                cycleTime = 250000u;
+        }
+
+        stream.is_trdp = TRUE;
+        memcpy(stream.ip, (UINT8 *)&destIPbe, 4);
+        stream.comid = comId + i;
+        stream.trigger = triggerTime;
+        stream.count = 1;
+        stream.start = i? FALSE:TRUE;
+
+        if (add_stream(&stream) != TRDP_NO_ERR)
+        {
+            vos_printLogStr(VOS_LOG_USR, "TADMA add stream error\n");
+            return 1;
+        }
+
+        vos_printLog(VOS_LOG_USR, "stream added, num:%d, ip:%x, comid: %d\n", i, destIPbe, stream.comid);
+
+        triggerTime += 50000u;
+        
         err = tlp_publish(  appHandle,                  /*    our application identifier    */
                             &pubHandle,                 /*    our pulication identifier     */
-                            NULL, NULL,
-                            comId - i,                  /*    ComID to send                 */
+                            &i, NULL,
+                            comId + i,                  /*    ComID to send                 */
                             0,                          /*    etbTopoCnt = 0 for local consist only     */
                             0,                          /*    opTopoCnt = 0 for non-directinal data     */
                             ownIP,                      /*    default source IP             */
@@ -316,13 +470,18 @@ int main (int argc, char *argv[])
                             (UINT8 *)outputBuffer,      /*    initial data                  */
                             outputBufferSize            /*    data size                     */
                             );
-    }
 
+        if (err != TRDP_NO_ERR)
+        {
+            vos_printLog(VOS_LOG_USR, "prep pd error, err code = %d\n", err);
+            tlc_terminate();
+            return 1;
+        }
+    }    
 
-    if (err != TRDP_NO_ERR)
+    if (program_all_streams() != TRDP_NO_ERR)
     {
-        vos_printLogStr(VOS_LOG_USR, "prep pd error\n");
-        tlc_terminate();
+        vos_printLogStr(VOS_LOG_USR, "TADMA program stream error\n");
         return 1;
     }
 
@@ -336,7 +495,7 @@ int main (int argc, char *argv[])
         TRDP_TIME_T         tv;
         TRDP_TIME_T         now;
         const TRDP_TIME_T   max_tv  = {0, 1000000};
-        const TRDP_TIME_T   min_tv  = {0, 1000};
+        const TRDP_TIME_T   min_tv  = {0, 5000};
 
         /*
            Prepare the file descriptor set for the select call.
@@ -353,7 +512,7 @@ int main (int argc, char *argv[])
         tlc_getInterval(appHandle, &tv, &rfds, &noDesc);
 
         /* MODIFIED */
-        printf("Wait: %d, %d\n", tv.tv_sec, tv.tv_usec);
+        //vos_printLog(VOS_LOG_DBG, "Wait: %d, %d\n", tv.tv_sec, tv.tv_usec);
 
         /*
            The wait time for select must consider cycle times and timeouts of
@@ -416,4 +575,3 @@ int main (int argc, char *argv[])
     tlc_terminate();
     return rv;
 }
-

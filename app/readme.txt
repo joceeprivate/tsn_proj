@@ -1,10 +1,5 @@
 TRDP中的example/sendHello.c可测试发送多个comid的TRDP包
 
-TADMA配置见scripts里, 支持comid 100-107
-
-例如 sendHello -t 10.1.1.1 -c 107 -n 8 -s 30 > /debug.log 向10.1.1.1发送comid为100-107, 周期为30ms的trdp包, 将debug结果保存在/debug.log里
-DEBUG显示了每种comid实际发送时间
-
 一些函数分析:
 
 tlp_publish 将发送的comid依次加入队列, 并初始化他们的首次发送时间
@@ -19,6 +14,23 @@ tlc_process 遍历接收和发送队列, 完成报文接收或发送
 很多地方用到vos_gettime函数, 已更改为读取ptp时间, 这样和TADMA保持同步
 
 本工程支持多种系统, linux属于POSIX, 相关底层接口在/src/vos/posix
+
+
+
+使用bitbake -c install trdp 编译trdp
+
+将bld/output/linux-dbg/sendHello 复制到开发板/usr/sbin下
+
+测试命令:
+qbv_sched ep
+
+sendHello -t 10.1.1.1 -c 10000 -n 128 -s 30000 -d 1430    COMID 10000-10127 所有COMID周期30ms
+
+or
+
+sendHello -t 10.1.1.1 -c 10000 -n 128 -d 1430 -v  COMID 10000-10127 周期为30/60/100/250 每32个一变
+
+最大支持128个COMID, 周期大于30ms
 
 
 

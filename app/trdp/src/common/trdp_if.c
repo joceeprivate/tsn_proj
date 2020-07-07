@@ -1275,6 +1275,10 @@ EXT_DECL TRDP_ERR_T tlp_publish (
     TRDP_TIME_T nextTime;
     TRDP_TIME_T tv_interval;
     TRDP_ERR_T  ret = TRDP_NO_ERR;
+    int         pdIndex = 0u;
+
+    if (pUserRef != NULL)
+        pdIndex = *((int *)pUserRef);        
 
     /*    Check params    */
     if ((interval != 0u && interval < TRDP_TIMER_GRANULARITY)
@@ -1376,14 +1380,14 @@ EXT_DECL TRDP_ERR_T tlp_publish (
             else
             {
                 vos_getTime(&nextTime);
-                nextTime.tv_sec += 1;
-                /* (MODIFIED) Separate the sends */
-                nextTime.tv_usec = (comId % 100) * 10000;                
+                /* (MODIFIED) Separate the sends */                
+                nextTime.tv_sec += 1 + pdIndex / 100u;               
+                nextTime.tv_usec = pdIndex * 10000u % 1000000;
                 tv_interval.tv_sec  = interval / 1000000u;
                 tv_interval.tv_usec = interval % 1000000;                
-                vos_addTime(&nextTime, &tv_interval);
                 pNewElement->interval   = tv_interval;
                 pNewElement->timeToGo   = nextTime;
+                //printf(" TimetoGo: %d, %d\n", nextTime.tv_sec, nextTime.tv_usec);
             }
 
             /*    Update the internal data */
@@ -1436,8 +1440,11 @@ EXT_DECL TRDP_ERR_T tlp_publish (
             trdp_pdInit(pNewElement, TRDP_MSG_PD, etbTopoCnt, opTrnTopoCnt, 0u, 0u);
 
             /*    Insert at front    */
-            trdp_queueInsFirst(&appHandle->pSndQueue, pNewElement);
+            //trdp_queueInsFirst(&appHandle->pSndQueue, pNewElement);
 
+            /*    Append at last    */
+            trdp_queueAppLast(&appHandle->pSndQueue, pNewElement);
+            
             *pPubHandle = (TRDP_PUB_T) pNewElement;
 
             if (dataSize != 0u)
@@ -3282,4 +3289,3 @@ EXT_DECL TRDP_ERR_T tlm_abortSession (
 #ifdef __cplusplus
 }
 #endif
-

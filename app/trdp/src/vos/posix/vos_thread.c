@@ -513,7 +513,7 @@ EXT_DECL void vos_getTime (
     }
     else
     {
-#ifdef CLOCK_PTP
+#if defined(CLOCK_PTP)
 
         #define FD_TO_CLOCKID(fd) ((~(clockid_t)(fd) << 3) | 3)
 
@@ -534,26 +534,24 @@ EXT_DECL void vos_getTime (
 
         close(phc_fd);
 
-#else
-    #ifdef CLOCK_MONOTONIC
+#elif defined(CLOCK_MONOTONIC)
                 
-            struct timespec currentTime;
+        struct timespec currentTime;
 
-            (void)clock_gettime(CLOCK_MONOTONIC, &currentTime);
+        (void)clock_gettime(CLOCK_MONOTONIC, &currentTime);
 
-            myTime.tv_sec   = currentTime.tv_sec;               \
-            myTime.tv_usec  = (int) currentTime.tv_nsec / 1000; \
+        myTime.tv_sec   = currentTime.tv_sec;
+        myTime.tv_usec  = (int) currentTime.tv_nsec / 1000;
 
+#else
+        /*    On systems without monotonic clock support,
+            changing the system clock during operation
+            might interrupt process data packet transmissions!    */
 
-    #else
-            /*    On systems without monotonic clock support,
-                changing the system clock during operation
-                might interrupt process data packet transmissions!    */
-
-            (void)gettimeofday(&myTime, NULL);                
+        (void)gettimeofday(&myTime, NULL);                
     
-    #endif
 #endif
+
 
         pTime->tv_sec   = myTime.tv_sec;
         pTime->tv_usec  = myTime.tv_usec;
