@@ -15,7 +15,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+//#define DEBUG
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/list.h>
@@ -411,34 +411,20 @@ static int tadma_get_strid(struct sk_buff *skb,
 	u16 ether_type = ntohs(hdr->h_proto);
 
 	if (!get_sid)
-		return 0;	
+		return 0;
 
-	if (unlikely(ether_type == ETH_P_8021Q)) {		
-		memcpy(hash_tag, hdr->h_dest, 6);
+	struct iphdr *iphdr = ip_hdr(skb);
+	memcpy(hash_tag, (u8 *)&iphdr->daddr, 4);
+	
+	struct trdp_pd_hdr *trdphdr = (struct trdp_pd_hdr *)(skb_transport_header(skb) + sizeof(struct udphdr));
+	comid = ntohl(trdphdr->comId);
 
-		struct vlan_ethhdr *vhdr = (struct vlan_ethhdr *)skb->data;
+	hash_tag[4] = comid & 0xff;
+	hash_tag[5] = (comid >> 8) & 0xff;
+	hash_tag[6] = (comid >> 16) & 0xff;
+	hash_tag[7] = (comid >> 24) & 0xff;
 
-		vlan_tci = ntohs(vhdr->h_vlan_TCI);
-
-		hash_tag[6] = vlan_tci & 0xff;
-		hash_tag[7] = (vlan_tci >> 8) & 0xff;
-	}
-	else
-	{
-		struct iphdr *iphdr = ip_hdr(skb);
-		memcpy(hash_tag, (u8 *)&iphdr->daddr, 4);
-		
-		struct trdp_pd_hdr *trdphdr = (struct trdp_pd_hdr *)(skb_transport_header(skb) + sizeof(struct udphdr));
-		comid = ntohl(trdphdr->comId);
-		pr_debug("COMID: %d\n", comid);
-
-		hash_tag[4] = comid & 0xff;
-		hash_tag[5] = (comid >> 8) & 0xff;
-		hash_tag[6] = (comid >> 16) & 0xff;
-		hash_tag[7] = (comid >> 24) & 0xff;
-
-	}
-	pr_debug("GET STREAM: HASH TAG:%d.%d.%d.%d.%d.%d.%d.%d\n", hash_tag[0], hash_tag[1], hash_tag[2], hash_tag[3], hash_tag[4], hash_tag[5], hash_tag[6], hash_tag[7]);
+	//pr_debug("GET STREAM: HASH TAG:%d.%d.%d.%d.%d.%d.%d.%d\n", hash_tag[0], hash_tag[1], hash_tag[2], hash_tag[3], hash_tag[4], hash_tag[5], hash_tag[6], hash_tag[7]);
 	idx = tadma_hashtag_hash(hash_tag);
 	entry = tadma_hash_lookup_stream(&cb->stream_hash[idx],
 					 hash_tag);
@@ -520,9 +506,8 @@ int axienet_tadma_xmit(struct sk_buff *skb, struct net_device *ndev,
 	/* get current alm offset */
 	alm_offset_fframe = tadma_stream_alm_offset(sid, write_p, ndev);
 
-	pr_debug("%d: num_frag: %d len: %d\n", sid, num_frag,
-		 skb_headlen(skb));
-	pr_debug("w:%d r:%d\n", write_p, read_p);
+	//pr_debug("%d: num_frag: %d len: %d\n", sid, num_frag, skb_headlen(skb));
+	pr_debug("sid: %d, w: %d, r: %d\n", sid, write_p, read_p);
 
 	tot_len = skb_headlen(skb);
 	len = skb_headlen(skb);
@@ -605,6 +590,8 @@ int axienet_tadma_xmit(struct sk_buff *skb, struct net_device *ndev,
 	tadma_iow(lp, alm_offset_fframe, alm_fframe.addr);
 	tadma_iow(lp, alm_offset_fframe + 4, alm_fframe.cfg);
 
+	pr_debug("sid %d: offset: %d, cfg: %x\n", sid, alm_offset_fframe, alm_fframe.cfg);
+
 	/* increment write */
 	write_p = (write_p + 1) & (lp->num_tadma_buffers - 1);
 
@@ -635,11 +622,6 @@ int axienet_tadma_program(struct net_device *ndev, void __user *useraddr)
 					  entry->tticks, entry->count);
 		}
 	}
-	/* flip memory first so access other sfm bank
-	 * cr = tadma_ior(lp, XTADMA_CR_OFFSET);
-	 * cr |= XTADMA_FLIP_FETCH_MEM;
-	 * tadma_iow(lp, XTADMA_CR_OFFSET, cr);
-	 */
 
 	/* re-enable interrupts */
 	tadma_iow(lp, XTADMA_INT_EN_OFFSET, XTADMA_FFI_INT_EN |
@@ -712,23 +694,13 @@ int axienet_tadma_add_stream(struct net_device *ndev, void __user *useraddr)
 		get_sfm = 0;
 	}
 
-	if (stream.is_trdp)
-	{
-		memcpy(hash_tag, stream.ip, 4);
-		hash_tag[4] = stream.comid & 0xff;
-		hash_tag[5] = (stream.comid >> 8) & 0xff;
-		hash_tag[6] = (stream.comid >> 16) & 0xff;
-		hash_tag[7] = (stream.comid >> 24) & 0xff;
-	}
-	else
-	{
-		memcpy(hash_tag, stream.dmac, 6);
-		vlan_tci = stream.vid & VLAN_VID_MASK;
-		vlan_tci |= (ST_PCP_VALUE << VLAN_PRIO_SHIFT) & VLAN_PRIO_MASK;
-		hash_tag[6] = vlan_tci & 0xff;
-		hash_tag[7] = (vlan_tci >> 8) & 0xff;
-	}
-	pr_debug("GET STREAM: HASH TAG:%d.%d.%d.%d.%d.%d.%d.%d\n", hash_tag[0], hash_tag[1], hash_tag[2], hash_tag[3], hash_tag[4], hash_tag[5], hash_tag[6], hash_tag[7]);
+	memcpy(hash_tag, stream.ip, 4);
+	hash_tag[4] = stream.comid & 0xff;
+	hash_tag[5] = (stream.comid >> 8) & 0xff;
+	hash_tag[6] = (stream.comid >> 16) & 0xff;
+	hash_tag[7] = (stream.comid >> 24) & 0xff;
+
+	//pr_debug("GET STREAM: HASH TAG:%d.%d.%d.%d.%d.%d.%d.%d\n", hash_tag[0], hash_tag[1], hash_tag[2], hash_tag[3], hash_tag[4], hash_tag[5], hash_tag[6], hash_tag[7]);
 	idx = tadma_hashtag_hash(hash_tag);
 	
 	entry = tadma_hash_lookup_stream(&cb->stream_hash[idx], hash_tag);
@@ -761,7 +733,7 @@ int axienet_tadma_add_stream(struct net_device *ndev, void __user *useraddr)
 	memcpy(entry->hashtag, hash_tag, 8);
 	entry->sfm = get_sfm++;
 
-	pr_debug("%s sid: %d\n", __func__, sid);
+	pr_debug("%s comid: %d, idx: %d, sid: %d\n", __func__, stream.comid, idx, sid);
 	hlist_add_head(&entry->hash_link, &cb->stream_hash[idx]);
 
 	return 0;

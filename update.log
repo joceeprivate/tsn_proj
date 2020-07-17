@@ -1,0 +1,11 @@
+07.17
+
+更新了BOOT.bin, TADMA相关时钟从100MHZ提升到200MHZ, 稳定性待测试
+
+更新了fitImage, 从内核config里去掉了无关硬件驱动,使内核大小缩小到2.9MB
+
+更新了应用qbv_sched, sendHello, 使这两者在时间上对齐, 有编译完的程序和源码
+
+更新了trdp测试脚本trdp_test.sh, 脚本里有两行sendhello, 分别是多周期(带-v)和不带, 分别测试
+
+测试时一般抓总数20万包左右,每个comid大概几千包, 过滤后查看周期抖动情况

@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 
     UINT8 data[DATA_MAX];
 
-    UINT32 triggerTime = 200000u;
+    UINT32 triggerTime = 2500000u;
     int ch, i;
 
     outputBuffer = exampleData;
@@ -393,7 +393,7 @@ int main(int argc, char *argv[])
         printf("CYCLE: %d\n", cycleTime);
 
     /*    Init the library  */
-    if (tlc_init(&dbgOut, /* (MODIFIED) &dbgOut for logging, no logging    */
+    if (tlc_init(NULL,               /* (MODIFIED) &dbgOut for logging, set NULL for no logging */
                  NULL,
                  &dynamicConfig) != TRDP_NO_ERR) /* Use application supplied memory    */
     {
@@ -452,7 +452,7 @@ int main(int argc, char *argv[])
 
         vos_printLog(VOS_LOG_USR, "stream added, num:%d, ip:%x, comid: %d\n", i, destIPbe, stream.comid);
 
-        triggerTime += 50000u;
+        triggerTime += 50000u; 
 
         err = tlp_publish(appHandle,  /*    our application identifier    */
                           &pubHandle, /*    our pulication identifier     */
@@ -494,7 +494,7 @@ int main(int argc, char *argv[])
         TRDP_TIME_T tv;
         TRDP_TIME_T now;
         const TRDP_TIME_T max_tv = {0, 1000000};
-        const TRDP_TIME_T min_tv = {0, 5000};
+        const TRDP_TIME_T min_tv = {0, 1000};
 
         /*
            Prepare the file descriptor set for the select call.
@@ -574,3 +574,4 @@ int main(int argc, char *argv[])
     tlc_terminate();
     return rv;
 }
+

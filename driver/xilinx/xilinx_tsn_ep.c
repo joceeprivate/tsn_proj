@@ -223,27 +223,28 @@ u16 axienet_tsn_pcp_to_queue(struct net_device *ndev, struct sk_buff *skb)
 		struct iphdr *iphdr = ip_hdr(skb);
 #ifdef CONFIG_AXIENET_HAS_TADMA
 		if (iphdr->protocol == IPPROTO_UDP) 
-			return ST_QUEUE_NUMBER;		
-#endif	
-		return BE_QUEUE_NUMBER;
-	}
-	if (unlikely(ether_type == ETH_P_8021Q)) {
-		struct vlan_ethhdr *vhdr = (struct vlan_ethhdr *)skb->data;
-
-		/* ether_type = ntohs(vhdr->h_vlan_encapsulated_proto); */
-
-		vlan_tci = ntohs(vhdr->h_vlan_TCI);
-
-		pcp = (vlan_tci & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
-#ifdef CONFIG_AXIENET_HAS_TADMA
-		if (lp->st_pcp & (1 << pcp)) 
 			return ST_QUEUE_NUMBER;
-#endif
-		if (lp->num_tc == 3 && (lp->res_pcp & (1 << pcp))) {
-			if (lp->num_tx_queues > 1)
-				return RES_QUEUE_NUMBER;
-		}
+#endif	
+		return RES_QUEUE_NUMBER;
 	}
+	
+// 	if (unlikely(ether_type == ETH_P_8021Q)) {
+// 		struct vlan_ethhdr *vhdr = (struct vlan_ethhdr *)skb->data;
+
+// 		/* ether_type = ntohs(vhdr->h_vlan_encapsulated_proto); */
+
+// 		vlan_tci = ntohs(vhdr->h_vlan_TCI);
+
+// 		pcp = (vlan_tci & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
+// #ifdef CONFIG_AXIENET_HAS_TADMA
+// 		if (lp->st_pcp & (1 << pcp)) 
+// 			return ST_QUEUE_NUMBER;
+// #endif
+// 		if (lp->num_tc == 3 && (lp->res_pcp & (1 << pcp))) {
+// 			if (lp->num_tx_queues > 1)
+// 				return RES_QUEUE_NUMBER;
+// 		}
+// 	}
 	return BE_QUEUE_NUMBER;
 }
 

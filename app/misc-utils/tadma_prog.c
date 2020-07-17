@@ -34,7 +34,12 @@
 #include <libconfig.h>
 #include <errno.h>
 
-enum axienet_tsn_ioctl {
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+
+enum axienet_tsn_ioctl
+{
 	SIOCCHIOCTL = SIOCDEVPRIVATE,
 	SIOC_GET_SCHED,
 	SIOC_PREEMPTION_CFG,
@@ -50,15 +55,13 @@ enum axienet_tsn_ioctl {
 	SIOC_TADMA_OFF,
 };
 
-struct tadma_stream {
-	unsigned char is_trdp;
-	unsigned char dmac[6];
-	unsigned short vid;
-	unsigned char ip[4];
-	unsigned int comid;
-	unsigned int trigger;
-	unsigned int count;
-	unsigned char start;
+struct tadma_stream
+{
+	u8 ip[4];
+	u32 comid;
+	u32 trigger;
+	u32 count;
+	u8 start;
 };
 
 int change_to_continuous(char *ifname)
@@ -66,7 +69,7 @@ int change_to_continuous(char *ifname)
 	struct ifreq s;
 	int ret;
 
-	if(!ifname)
+	if (!ifname)
 		return -1;
 
 	int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
@@ -75,9 +78,10 @@ int change_to_continuous(char *ifname)
 
 	ret = ioctl(fd, SIOC_TADMA_OFF, &s);
 
-	if(ret < 0)
+	if (ret < 0)
 	{
-		perror("Cannot be changed to continuous mode");
+		//perror("Cannot be changed to continuous mode");
+		printf("Cannot change to continuous, errno = %d\n", errno);
 	}
 	close(fd);
 }
@@ -87,7 +91,7 @@ int flush_stream(char *ifname)
 	struct ifreq s;
 	int ret;
 
-	if(!ifname)
+	if (!ifname)
 		return -1;
 
 	int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
@@ -96,18 +100,20 @@ int flush_stream(char *ifname)
 
 	ret = ioctl(fd, SIOC_TADMA_STR_FLUSH, &s);
 
-	if(ret < 0)
+	if (ret < 0)
 	{
-		perror("TADMA stream flush failed");
+		//perror("TADMA stream flush failed");
+		printf("TADMA stream flush failed, errno = %d\n", errno);
 	}
 	close(fd);
 }
+
 int add_stream(struct tadma_stream *stream, char *ifname)
 {
 	struct ifreq s;
 	int ret;
 
-	if(!ifname)
+	if (!ifname)
 		return -1;
 
 	int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
@@ -118,9 +124,10 @@ int add_stream(struct tadma_stream *stream, char *ifname)
 
 	ret = ioctl(fd, SIOC_TADMA_STR_ADD, &s);
 
-	if(ret < 0)
+	if (ret < 0)
 	{
-		perror("TADMA stream add failed");
+		//perror("TADMA stream add failed");
+		printf("TADMA stream add failed, errno = %d\n", errno);
 	}
 	close(fd);
 }
@@ -130,7 +137,7 @@ int program_all_streams(char *ifname)
 	struct ifreq s;
 	int ret;
 
-	if(!ifname)
+	if (!ifname)
 		return -1;
 
 	int fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
@@ -141,27 +148,31 @@ int program_all_streams(char *ifname)
 
 	ret = ioctl(fd, SIOC_TADMA_PROG_ALL, &s);
 
-	if(ret < 0)
+	if (ret < 0)
 	{
-		perror("TADMA stream program failed");
+		//perror("TADMA stream program failed");
+		printf("TADMA stream program failed, errno = %d\n", errno);
 	}
 	close(fd);
 }
 
-int sortbytrigger(const void *i1, const void *i2)  {
-    struct tadma_stream **a = (struct tadma_stream **)i1;
-    struct tadma_stream **b = (struct tadma_stream **)i2;
-    return ((*a)->trigger - (*b)->trigger);
+int sortbytrigger(const void *i1, const void *i2)
+{
+	struct tadma_stream **a = (struct tadma_stream **)i1;
+	struct tadma_stream **b = (struct tadma_stream **)i2;
+	return ((*a)->trigger - (*b)->trigger);
 }
+
 int get_interface(char *argv)
-{	
-        if (!strcmp(argv, "eth1"))
-                return 1;
-        else if (!strcmp(argv, "ep"))
-                return 0;
-        else
+{
+	if (!strcmp(argv, "eth1"))
+		return 1;
+	else if (!strcmp(argv, "ep"))
+		return 0;
+	else
 		return -1;
 }
+
 void usage()
 {
 	printf("Usage-1 :\n tadma_prog <interface>\n");
@@ -215,105 +226,77 @@ int main(int argc, char **argv)
 			usage();	
 		strncpy(ifname, argv[1], IFNAMSIZ);
 	}
-	if( !config_read_file(&cfg, path) )
-	{		
+
+	if (!config_read_file(&cfg, path))
+	{
 		printf("Can't read %s, Error: %s\n", path, config_error_text(&cfg));
 		config_destroy(&cfg);
-		return(EXIT_FAILURE);
+		return (EXIT_FAILURE);
 	}
 
 	sprintf(str, "streams");
 
 	setting = config_lookup(&cfg, str);
-	if(setting != NULL)
+	if (setting != NULL)
 	{
 		int loop = config_setting_length(setting);
-		if (loop == 0) {
+		if (loop == 0)
+		{
 			printf("Number of stream entries cannot be zero\n");
-			usage();	
+			usage();
 		}
-		
-		stream = malloc(sizeof(struct tadma_stream*) * loop);
-		for(i = 0; i < loop; i++)
-		stream[i] = malloc(sizeof(struct tadma_stream));
+
+		stream = malloc(sizeof(struct tadma_stream *) * loop);
+		for (i = 0; i < loop; i++)
+			stream[i] = malloc(sizeof(struct tadma_stream));
 		/* TODO */
 		/* if( count > stream_count) */
-		for(i = 0; i < loop; i++)
+		for (i = 0; i < loop; i++)
 		{
-			const char *mac_buf;
 			const char *ip_buf;
-			unsigned short vid;
+			unsigned char ip[4];
 			unsigned int comid;
 			unsigned int trigger, count;
-			unsigned char mac[6];
-			unsigned char ip[4];
-			unsigned char is_trdp;
 
 			config_setting_t *cs =
 				config_setting_get_elem(setting, i);
-			
-			if(!config_setting_lookup_bool(cs, "is_trdp", &is_trdp))
+
+			if (!config_setting_lookup_string(cs, "ip", &ip_buf))
 				continue;
 
-			stream[i]->is_trdp = is_trdp;
-			if(is_trdp)
-			{
-				if(!config_setting_lookup_string(cs, "ip", &ip_buf))
-					continue;
-
-				sscanf(ip_buf, "%d.%d.%d.%d", &ip[0],
-				&ip[1], &ip[2], &ip[3]);
-				config_setting_lookup_int(cs, "comid", &comid);
-				
-				memcpy(stream[i]->ip, ip, 4);
-				stream[i]->comid = comid;
-
-				printf("ip: %s comid: %d ", ip_buf, comid);
-			}
-			else
-			{
-				if(!config_setting_lookup_string(cs, "mac", &mac_buf))
-					continue;
-
-				sscanf(mac_buf, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &mac[0],
-				&mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);				
-				config_setting_lookup_int(cs, "vid", &vid);
-
-				memcpy(stream[i]->dmac, mac, 6);
-				stream[i]->vid = vid;
-
-				printf("mac: %s vid: %d ", mac_buf, vid);
-			}
-
+			sscanf(ip_buf, "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
+			config_setting_lookup_int(cs, "comid", &comid);
 			config_setting_lookup_int(cs, "trigger", &trigger);
 			config_setting_lookup_int(cs, "count", &count);
-			
-			stream[i]->trigger = (unsigned int)trigger;
-			stream[i]->count = (unsigned int)count;
 
-			printf("trigger: %d, count: %d\n", trigger, count);
+			memcpy(stream[i]->ip, ip, 4);
+			stream[i]->comid = comid;
+			stream[i]->trigger = trigger;
+			stream[i]->count = count;
 
-			if(count > 4) {
+			printf("ip: %s comid: %d trigger: %d, count: %d\n", ip_buf, comid, trigger, count);
+
+			if (count > 4)
+			{
 				printf("Error: count value should not be greater than 4\n");
 				goto end;
 			}
-			
-			stream[i]->start = (unsigned char)i?0:1;
-			
+
+			stream[i]->start = (unsigned char)i ? 0 : 1;
 		}
-		qsort(stream, loop, sizeof(struct tadma_stream*), sortbytrigger);
-		flush_stream(ifname);
-		for(i = 0; i < loop; i++)
+		qsort(stream, loop, sizeof(struct tadma_stream *), sortbytrigger);
+		flush_stream("ep");
+		for (i = 0; i < loop; i++)
 		{
 			//printf("vid: %d trigger: %d\n",
 			//		stream[i]->vid, stream[i]->trigger);
-			add_stream(stream[i], ifname);
+			add_stream(stream[i], "ep");
 		}
-		program_all_streams(ifname);
-end:
-		for(i = 0; i < loop; i++)
-		free(stream[i]);
-		
+		program_all_streams("ep");
+	end:
+		for (i = 0; i < loop; i++)
+			free(stream[i]);
+
 		free(stream);
 	}
 }

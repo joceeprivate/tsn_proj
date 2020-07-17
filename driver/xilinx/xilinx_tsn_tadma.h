@@ -28,9 +28,10 @@
 #define XTADMA_SEI_DEI_STAT_OFFSET	0x30
 #define XTADMA_IEI_STAT_OFFSET		0x34
 
+#define XTADMA_FLIP_FETCH_MEM_NEW_SCHED     BIT(7)
+#define XTADMA_FLIP_FETCH_MEM_NEXT_CYCLE	BIT(6)
 #define XTADMA_HALTED		BIT(5)
 #define XTADMA_SCHED_ENABLE	BIT(4)
-#define XTADMA_FLIP_FETCH_MEM	BIT(3)
 #define XTADMA_SKIP_DEL_ENTRY	BIT(2)
 #define XTADMA_SOFT_RST		BIT(1)
 #define XTADMA_CFG_DONE		BIT(0)
@@ -118,9 +119,9 @@ struct tadma_cb {
 
 /* stream cfg */
 struct tadma_stream {
-	u8 is_trdp;
+	/*u8 is_trdp;
 	u8 dmac[6];	
-	short vid;
+	short vid;*/
 	u8 ip[4];
 	u32 comid;
 	u32 trigger;

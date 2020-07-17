@@ -1,5 +1,6 @@
 # tsn_proj
 
+
 app/misc_utils是tadma配置程序, app/Open-AVB/example中是udp收发测试程序, app/trdp/example/sendHello中是trdp发送测试程序
 driver/xilinx是tsn驱动程序
 recipes是bitbake配方
@@ -14,8 +15,7 @@ recipes是bitbake配方
 使用命令bitbake trdp编译应用
 
 将tsn-package/others/trdp/bld/output/linux-dbg/sendHello复制到开发板的/usr/sbin里
-将misc-utils的streams.cfg复制到/etc里
-使用sendHello命令测试发送, 目的Ip 10.1.1.1, Comid 8888, 前提是开启ptp同步和qbv,tadma
+
 
 程序的基本原理是:
 EP驱动将UDP包发送到ST队列,确保被TADMA读取
@@ -24,6 +24,6 @@ TADMA配置应用按streams.cfg配置TADMA发送顺序
 
 PTP同步校准PTP时钟, 可用ptptime查看
 TRDP应用中使用校准的PTP时钟代替之前的系统时钟来规划发送, 读取时间函数为vos_gettime()
-也可查看udp_client测试程序了解定时发送的大体过程
+
 
 
