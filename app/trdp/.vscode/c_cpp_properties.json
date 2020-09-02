@@ -7,7 +7,7 @@
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
-            "cppStandard": "gnu++14"
+            "cppStandard": "${default}"
         }
     ],
     "version": 4
